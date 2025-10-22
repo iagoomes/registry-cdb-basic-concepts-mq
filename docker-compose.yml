@@ -1,4 +1,5 @@
 version: '3.8'
+
 services:
   rabbitmq:
     image: rabbitmq:3-management
@@ -9,3 +10,50 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cdb-network
+
+  producer-api:
+    build:
+      context: .
+      dockerfile: producer-api/Dockerfile
+    container_name: producer-api
+    ports:
+      - "8080:8080"
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: guest
+      RABBITMQ_PASSWORD: guest
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - cdb-network
+
+  consumer-api:
+    build:
+      context: .
+      dockerfile: consumer-api/Dockerfile
+    container_name: consumer-api
+    ports:
+      - "8081:8081"
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: guest
+      RABBITMQ_PASSWORD: guest
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - cdb-network
+
+networks:
+  cdb-network:
+    driver: bridge
