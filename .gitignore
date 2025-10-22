@@ -31,4 +31,9 @@ build/
 
 ### VS Code ###
 .vscode/
-/src/main/resources/archives/
+
+### Application Archives ###
+**/archives/
+
+### Old src directory (after migration to multi-module) ###
+/src/
