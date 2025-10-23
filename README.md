@@ -191,12 +191,30 @@ curl -X POST http://localhost:8080/api/v1/cdb-registry \
   }'
 ```
 
+**Resposta esperada:**
+```json
+{
+  "registryId": "fbe4bde1-53e1-4abd-aa1e-d4c1f6103eb7",
+  "clientId": "CLI-001",
+  "amount": 10000.00,
+  "durationDays": 365,
+  "interestRate": 12.5,
+  "createdAt": "2025-10-23T17:35:56.121130754"
+}
+```
+
 ### Verificar Consumer
 
 Verifique os logs do consumer para ver a mensagem sendo processada:
 
 ```bash
 docker-compose logs -f consumer-api
+```
+
+Você deve ver logs como:
+```
+consumer-api  | Processing CDB registry: CdbRegistryDto(registryId=..., clientId=CLI-001, amount=10000.00, ...)
+consumer-api  | Registry ID: ..., Client: CLI-001, Amount: 10000.00, Duration: 365 days, Interest Rate: 12.5%
 ```
 
 ## Acessos

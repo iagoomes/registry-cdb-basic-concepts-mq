@@ -5,6 +5,7 @@ WORKDIR /app
 # Copy parent pom and module poms
 COPY pom.xml .
 COPY producer-api/pom.xml producer-api/
+COPY consumer-api/pom.xml consumer-api/
 
 # Download dependencies
 RUN mvn dependency:go-offline -pl producer-api -am
