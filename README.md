@@ -1,151 +1,85 @@
-# CDB Registry - RabbitMQ Basic Concepts
+# Registry CDB Basic Concepts MQ
 
-Este projeto demonstra o fluxo básico de mensageria com RabbitMQ em um contexto de renda fixa (CDB).
+Este projeto demonstra o **fluxo básico de mensageria** com RabbitMQ em um contexto de renda fixa (CDB).
 
-## Arquitetura Multi-Módulo Maven
+## 📋 Sobre o Projeto
 
-O projeto utiliza uma estrutura **multi-módulo Maven** (também conhecida como Maven Multi-Module ou Maven Reactor). Esta é uma abordagem profissional para organizar projetos com múltiplas aplicações ou componentes relacionados.
+Este é o **Exercício 1** da série de aprendizado de RabbitMQ, focado no fluxo fundamental Producer → Exchange → Queue → Consumer.
 
-### Por que Multi-Módulo?
+**O que você aprenderá:**
+- ✅ Fluxo básico de mensageria
+- ✅ Producer API (enviar mensagens)
+- ✅ Consumer API (receber mensagens)
+- ✅ Direct Exchange (roteamento exato)
+- ✅ Estrutura Maven Multi-Module
+- ✅ Event-driven architecture
 
-#### 1. **Organização e Separação de Responsabilidades**
-Ao invés de ter tudo em um único projeto monolítico, separamos:
-- **Producer API**: Responsável apenas por receber requisições HTTP e publicar mensagens
-- **Consumer API**: Responsável apenas por consumir e processar mensagens
-
-Cada módulo tem seu próprio ciclo de vida, dependências e configurações específicas.
-
-#### 2. **Reutilização de Configurações**
-O **POM Pai** (`pom.xml` na raiz) centraliza:
-- Versões de dependências (`dependencyManagement`)
-- Configurações de plugins (`pluginManagement`)
-- Propriedades do projeto (Java version, encoding, etc.)
-
-Isso evita duplicação e garante consistência entre os módulos.
-
-#### 3. **Build Unificado**
-Com um único comando `mvn clean install` na raiz, o Maven:
-1. Identifica todos os módulos declarados no POM pai
-2. Determina a ordem de build (Reactor Order)
-3. Compila todos os módulos na sequência correta
-
-#### 4. **Facilita Deploy Independente**
-- Cada módulo gera seu próprio JAR executável
-- Você pode fazer deploy apenas do módulo que mudou
-- Cada módulo pode ter seu próprio Dockerfile otimizado
-
-#### 5. **Isolamento de Dependências**
-- Producer API precisa de `spring-boot-starter-web` (para REST)
-- Consumer API **não precisa** de Web (só messaging)
-- Cada um declara apenas o que realmente usa
-
-### Estrutura do Projeto
+## 🏗️ Arquitetura
 
 ```
-registry-cdb-basic-concepts-mq/          ← Projeto Pai
-├── pom.xml                              ← POM Pai (packaging: pom)
-│   ├── <modules>
-│   │   ├── producer-api                 ← Declaração dos módulos
-│   │   └── consumer-api
-│   ├── <dependencyManagement>           ← Versões centralizadas
-│   └── <pluginManagement>               ← Configurações de plugins
-│
-├── producer-api/                        ← Módulo 1
-│   ├── pom.xml                          ← POM do módulo (parent: pom pai)
-│   ├── src/
+Producer API (8080) → RabbitMQ Direct Exchange → Consumer API (8081)
+                           ↓
+                    fixed-income.direct
+                           │
+                    Routing Key: cdb.registry.created
+                           │
+                    fixed-income.cdb.registry (Queue)
+                           │
+                           ↓
+                    Consumer API processa
+```
+
+## 📦 Estrutura do Projeto
+
+O projeto utiliza **Maven Multi-Module**, separando Producer e Consumer em módulos independentes:
+
+```
+registry-cdb-basic-concepts-mq/
+├── pom.xml (POM Pai)
+├── producer-api/
+│   ├── pom.xml
 │   ├── Dockerfile
-│   └── target/                          ← JAR independente gerado
-│       └── producer-api-0.0.1-SNAPSHOT.jar
-│
-└── consumer-api/                        ← Módulo 2
-    ├── pom.xml                          ← POM do módulo (parent: pom pai)
-    ├── src/
+│   └── src/main/java/
+└── consumer-api/
+    ├── pom.xml
     ├── Dockerfile
-    └── target/                          ← JAR independente gerado
-        └── consumer-api-0.0.1-SNAPSHOT.jar
+    └── src/main/java/
 ```
 
-### Como Funciona o POM Pai
+**Vantagens:**
+- Deploy independente de Producer e Consumer
+- Escalabilidade horizontal isolada
+- Cada módulo com suas próprias dependências
+- Simula arquitetura de microserviços
 
-#### POM Pai (`pom.xml` na raiz)
-```xml
-<packaging>pom</packaging>  <!-- NÃO gera JAR, apenas coordena -->
+## 🛠️ Tecnologias
 
-<modules>
-    <module>producer-api</module>  <!-- Lista de módulos -->
-    <module>consumer-api</module>
-</modules>
+- Java 21
+- Spring Boot 3.5.6
+- Spring AMQP
+- RabbitMQ 3
+- Docker & Docker Compose
+- Maven Multi-Module
+- Lombok
+- Jackson
 
-<dependencyManagement>  <!-- Define versões, mas NÃO adiciona dependências -->
-    <dependencies>
-        <dependency>
-            <groupId>org.openapitools</groupId>
-            <artifactId>jackson-databind-nullable</artifactId>
-            <version>0.2.1</version>  <!-- Versão centralizada -->
-        </dependency>
-    </dependencies>
-</dependencyManagement>
-```
+## ✅ Pré-requisitos
 
-#### POM dos Módulos
-```xml
-<parent>  <!-- Herda configurações do pai -->
-    <groupId>br.com.iagoomes</groupId>
-    <artifactId>registry-cdb-basic-concepts-mq</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
-</parent>
-
-<artifactId>producer-api</artifactId>  <!-- Apenas artifactId (groupId e version herdados) -->
-
-<dependencies>
-    <dependency>
-        <groupId>org.openapitools</groupId>
-        <artifactId>jackson-databind-nullable</artifactId>
-        <!-- SEM versão! Usa a do pai -->
-    </dependency>
-</dependencies>
-```
-
-### Vantagens para Este Projeto
-
-1. **Simula Arquitetura Real**: Em produção, producer e consumer geralmente são serviços separados
-2. **Deploy Independente**: Cada serviço pode escalar independentemente no Docker/Kubernetes
-3. **Manutenção Facilitada**: Mudanças no Producer não afetam o Consumer
-4. **Consistência**: Ambos usam as mesmas versões de Spring Boot e RabbitMQ configuradas no pai
-
-### Producer API (Porta 8080)
-
-- Expõe endpoint REST para criar registros de CDB
-- Envia mensagens para o RabbitMQ
-- Endpoint: `POST /api/v1/cdb-registry`
-
-### Consumer API (Porta 8081)
-
-- Consome mensagens do RabbitMQ
-- Processa registros de CDB recebidos
-- Logs de processamento
-
-## Fluxo de Mensageria
-
-```
-Producer API → Exchange (fixed-income.direct)
-            → Routing Key (cdb.registry.created)
-            → Queue (fixed-income.cdb.registry)
-            → Consumer API
-```
-
-## Pré-requisitos
-
-- Docker e Docker Compose
+- Docker e Docker Compose instalados
 - Java 21 (para desenvolvimento local)
 - Maven 3.9+ (para desenvolvimento local)
+- Portas 8080, 8081, 5672 e 15672 disponíveis
 
-## Como Executar
+## 🚀 Como Executar
 
-### Com Docker Compose (Recomendado)
+### Com Docker Compose (recomendado)
 
 ```bash
-# Build e start todos os serviços
+# Clonar o repositório
+git clone https://github.com/iagoomes/registry-cdb-basic-concepts-mq.git
+cd registry-cdb-basic-concepts-mq
+
+# Buildar e iniciar todos os serviços
 docker-compose up --build
 
 # Ou em background
@@ -158,37 +92,81 @@ docker-compose logs -f
 docker-compose down
 ```
 
-### Desenvolvimento Local
+### Em Desenvolvimento Local
 
 ```bash
-# Build do projeto
-mvn clean install
-
 # Terminal 1 - RabbitMQ
 docker-compose up rabbitmq
 
-# Terminal 2 - Producer API
+# Terminal 2 - Build do projeto
+mvn clean install
+
+# Terminal 3 - Producer API
 cd producer-api
 mvn spring-boot:run
 
-# Terminal 3 - Consumer API
+# Terminal 4 - Consumer API
 cd consumer-api
 mvn spring-boot:run
 ```
 
-## Testando
+## 📁 Estrutura de Código
 
-### Criar um registro de CDB
+### Producer API
 
+```
+producer-api/src/main/java/br/com/iagoomes/registrycdb/producer/
+├── ProducerApplication.java
+├── application/
+│   ├── controller/
+│   │   └── CdbRegistryController.java
+│   └── service/
+│       └── CdbRegistryService.java
+├── domain/
+│   └── dto/
+│       └── CdbRegistryDto.java
+└── infra/
+    ├── config/
+    │   └── RabbitMQConfig.java
+    └── mqprovider/producer/
+        └── CdbRegistryProducer.java
+```
+
+### Consumer API
+
+```
+consumer-api/src/main/java/br/com/iagoomes/registrycdb/consumer/
+├── ConsumerApplication.java
+├── domain/
+│   └── dto/
+│       └── CdbRegistryDto.java
+└── infra/
+    ├── config/
+    │   └── RabbitMQConfig.java
+    └── mqprovider/consumer/
+        └── CdbRegistryConsumer.java
+```
+
+## 📡 Endpoints da API
+
+### Producer API (http://localhost:8080)
+
+**Health Check**
+```
+GET /api/v1/cdb-registry/health
+```
+
+**Criar Registro de CDB**
 ```bash
-curl -X POST http://localhost:8080/api/v1/cdb-registry \
-  -H "Content-Type: application/json" \
-  -d '{
-    "clientId": "CLI-001",
-    "amount": 10000.00,
-    "durationDays": 365,
-    "interestRate": 12.5
-  }'
+POST /api/v1/cdb-registry
+Content-Type: application/json
+
+{
+  "clientId": "CLI-001",
+  "amount": 10000.00,
+  "durationDays": 365,
+  "interestRate": 12.5
+}
 ```
 
 **Resposta esperada:**
@@ -203,61 +181,259 @@ curl -X POST http://localhost:8080/api/v1/cdb-registry \
 }
 ```
 
-### Verificar Consumer
+## 📚 Fluxo de Mensageria
 
-Verifique os logs do consumer para ver a mensagem sendo processada:
+### Como Funciona
+
+O RabbitMQ utiliza um modelo **Producer-Exchange-Queue-Consumer**:
+
+1. **Producer**: Envia mensagem para o Exchange
+2. **Exchange**: Roteia a mensagem para a Queue baseado na Routing Key
+3. **Queue**: Armazena a mensagem até o Consumer processar
+4. **Consumer**: Recebe e processa a mensagem
+
+### Direct Exchange
+
+Este projeto usa **Direct Exchange**, que roteia mensagens com base em **correspondência exata** da routing key.
+
+**Exemplo:**
+- Producer envia com routing key: `cdb.registry.created`
+- Queue está vinculada com pattern: `cdb.registry.created` (exato)
+- ✅ Mensagem é entregue à queue
+
+Se a routing key não corresponder exatamente:
+- Producer envia com routing key: `cdb.registry.updated`
+- Queue está vinculada com pattern: `cdb.registry.created`
+- ❌ Mensagem NÃO é entregue
+
+### Fluxo Passo-a-Passo
+
+```
+1. POST /api/v1/cdb-registry (Producer recebe HTTP)
+   ↓
+2. CdbRegistryService.save() cria o DTO
+   ↓
+3. CdbRegistryProducer envia para Exchange
+   - Exchange: fixed-income.direct
+   - Routing Key: cdb.registry.created
+   - Payload: CdbRegistryDto
+   ↓
+4. Exchange compara Routing Key com Bindings
+   - Binding: fixed-income.cdb.registry ← cdb.registry.created
+   - ✅ MATCH! Mensagem vai para a queue
+   ↓
+5. Mensagem fica na fila: fixed-income.cdb.registry
+   ↓
+6. Consumer escuta a fila com @RabbitListener
+   - Consome a mensagem
+   - Desserializa o JSON para CdbRegistryDto
+   - Processa (log, negócio, etc)
+   ↓
+7. Consumer retorna ACK (acknowledgment)
+   - Mensagem é confirmada e removida da fila
+   ↓
+8. ✅ Processamento concluído
+```
+
+## 💡 Exemplos de Uso
+
+### Exemplo 1: Criar um CDB
+
+```bash
+curl -X POST http://localhost:8080/api/v1/cdb-registry \
+  -H "Content-Type: application/json" \
+  -d '{
+    "clientId": "CLI-001",
+    "amount": 10000.00,
+    "durationDays": 365,
+    "interestRate": 12.5
+  }'
+```
+
+**Logs esperados do consumer:**
+
+```
+consumer-api | Processing CDB registry: CdbRegistryDto(registryId=..., clientId=CLI-001, ...)
+consumer-api | Registry ID: ..., Client: CLI-001, Amount: 10000.00, Duration: 365 days, Interest Rate: 12.5%
+```
+
+### Exemplo 2: Múltiplas Requisições
+
+```bash
+# Requisição 1
+curl -X POST http://localhost:8080/api/v1/cdb-registry \
+  -H "Content-Type: application/json" \
+  -d '{
+    "clientId": "CLI-002",
+    "amount": 50000.00,
+    "durationDays": 720,
+    "interestRate": 13.0
+  }'
+
+# Requisição 2
+curl -X POST http://localhost:8080/api/v1/cdb-registry \
+  -H "Content-Type: application/json" \
+  -d '{
+    "clientId": "CLI-003",
+    "amount": 25000.00,
+    "durationDays": 540,
+    "interestRate": 11.8
+  }'
+```
+
+Consumer processa ambas sequencialmente:
+
+```
+consumer-api | Processing CDB registry: ..., clientId=CLI-002, ...
+consumer-api | Registry ID: ..., Client: CLI-002, Amount: 50000.00, ...
+consumer-api | Processing CDB registry: ..., clientId=CLI-003, ...
+consumer-api | Registry ID: ..., Client: CLI-003, Amount: 25000.00, ...
+```
+
+## 📊 Monitoramento
+
+### Ver logs do Consumer
 
 ```bash
 docker-compose logs -f consumer-api
 ```
 
-Você deve ver logs como:
+Você verá algo como:
+
 ```
-consumer-api  | Processing CDB registry: CdbRegistryDto(registryId=..., clientId=CLI-001, amount=10000.00, ...)
-consumer-api  | Registry ID: ..., Client: CLI-001, Amount: 10000.00, Duration: 365 days, Interest Rate: 12.5%
-```
-
-## Acessos
-
-- **Producer API**: http://localhost:8080
-- **Consumer API**: http://localhost:8081
-- **RabbitMQ Management**: http://localhost:15672 (guest/guest)
-
-## Estrutura dos Módulos
-
-### Producer API
-```
-producer-api/src/main/java/
-└── br/com/iagoomes/registrycdb/producer/
-    ├── ProducerApplication.java
-    ├── application/
-    │   ├── controller/
-    │   └── service/
-    ├── domain/
-    │   └── dto/
-    └── infra/
-        ├── config/
-        └── mqprovider/producer/
+consumer-api | 2025-10-24 15:30:00 INFO Processing CDB registry: ...
+consumer-api | 2025-10-24 15:30:00 INFO Registry ID: ..., Client: CLI-001, ...
 ```
 
-### Consumer API
-```
-consumer-api/src/main/java/
-└── br/com/iagoomes/registrycdb/consumer/
-    ├── ConsumerApplication.java
-    ├── domain/
-    │   └── dto/
-    └── infra/
-        ├── config/
-        └── mqprovider/consumer/
+### RabbitMQ Management UI
+
+Acesse: [http://localhost:15672](http://localhost:15672)
+
+**Credenciais:**
+- Username: `guest`
+- Password: `guest`
+
+**O que você pode ver:**
+
+1. **Exchanges**
+   - Vá em Exchanges → `fixed-income.direct`
+   - Veja o binding com a fila
+
+2. **Queues**
+   - Vá em Queues
+   - Veja a fila: `fixed-income.cdb.registry`
+   - Clique em "Get Messages" para visualizar conteúdo
+   - Veja o Ready count (mensagens aguardando)
+
+3. **Connections**
+   - Veja as conexões ativas do Producer e Consumer
+
+## ⚙️ Configuração
+
+### application.yml
+
+```yaml
+spring:
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
+fixed-income:
+  queue:
+    name: fixed-income.cdb.registry
+    exchange: fixed-income.direct
+    routing-key: cdb.registry.created
 ```
 
-## Tecnologias
+### Variáveis de Ambiente
 
-- Spring Boot 3.5.6
-- Java 21
-- RabbitMQ 3
-- Maven Multi-Module
-- Docker & Docker Compose
-- Lombok
-- Jackson
+Você pode sobrescrever as configurações via variáveis de ambiente:
+
+```bash
+SPRING_RABBITMQ_HOST=rabbitmq
+SPRING_RABBITMQ_PORT=5672
+SPRING_RABBITMQ_USERNAME=guest
+SPRING_RABBITMQ_PASSWORD=guest
+```
+
+## 🔧 Troubleshooting
+
+### Verificar se as portas estão em uso
+
+```bash
+lsof -i :8080
+lsof -i :8081
+lsof -i :5672
+lsof -i :15672
+```
+
+### Parar containers antigos
+
+```bash
+docker-compose down -v
+```
+
+### Verificar logs do Producer
+
+```bash
+docker-compose logs -f producer-api
+```
+
+Você deve ver logs de operação normais.
+
+### Verificar conexão com RabbitMQ
+
+- Acesse [http://localhost:15672](http://localhost:15672)
+- Vá em Connections
+- Deve haver uma conexão do Producer
+
+### Consumer não está recebendo mensagens
+
+**Verificar:**
+- Consumer está rodando?
+  ```bash
+  docker-compose ps
+  ```
+- Queue foi criada?
+  - Acesse [http://localhost:15672](http://localhost:15672) → Queues
+  - Deve existir `fixed-income.cdb.registry`
+- Binding está correto?
+  - Acesse Exchange `fixed-income.direct`
+  - Veja se o binding está configurado
+
+**Possíveis causas:**
+- Consumer travado (verificar logs)
+- Erro na desserialização JSON
+- Exception no handler do consumer
+
+**Solução:**
+```bash
+# Reiniciar o consumer
+docker-compose restart consumer-api
+
+# Ver logs detalhados
+docker-compose logs -f consumer-api
+```
+
+## 📚 Série de Exercícios
+
+- **Exercício 1:** [registry-cdb-basic-concepts-mq](https://github.com/iagoomes/registry-cdb-basic-concepts-mq) - Fluxo básico ← VOCÊ ESTÁ AQUI
+- **Exercício 2:** [registry-cdb-dlx-retry-mq](https://github.com/iagoomes/registry-cdb-dlx-retry-mq) - DLX e Retry
+- **Exercício 3:** [fixed-income-topic-routing-mq](https://github.com/iagoomes/fixed-income-topic-routing-mq) - Topic Exchange
+
+**Próximos:**
+- Exercício 4: Fanout Exchange (Broadcasting)
+- Exercício 5: Priority Queues
+- Exercício 6: Delayed Messages com TTL
+- Exercício 7: Idempotência e Deduplicação
+- Exercício 8: Saga Pattern
+
+## 👨‍💻 Autor
+
+**Iago Gomes**
+- GitHub: [@iagoomes](https://github.com/iagoomes)
+- LinkedIn: [Iago Gomes](https://www.linkedin.com/in/deviagogomes)
+
+⭐ Se este projeto te ajudou, deixe uma estrela no repositório!
